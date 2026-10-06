@@ -1,5 +1,6 @@
 # Based on https://github.com/OwlPlug/owlplug-scanner/blob/master/.github/workflows/main.yml
-name: jv880
+name: VirtualJV classic sound (Windows VST3)
+# This fork builds Windows only: one runner per push.
 
 on: 
   push:
@@ -31,59 +32,4 @@ jobs:
         name: jv880-win
         path: |
               ./Builds/VisualStudio2022/x64/Release/VST3/jv880.vst3
-              ./Builds/VisualStudio2022/x64/Release/Standalone Plugin/jv880.exe
-  build-osx:
-    runs-on: macos-15
-    steps:
-    - uses: actions/checkout@v3.3.0
-      with:
-        fetch-depth: 0
-        submodules: recursive
-    - name: "Download Projucer"
-      run: |
-           git clone -b 8.0.7 --depth 1 https://github.com/juce-framework/JUCE JUCE
-           bash -ex ./build/download-projucer.sh
-      shell: bash
-      env:
-        OS: osx
-    - name: "Build macOS"
-      run: sh -ex ./build/build-osx.sh
-      shell: bash
-    - name: "zip macOS"
-      run: |
-           cd ./Builds/MacOSX/build/Release/
-           zip -r jv880.vst3.macOS.zip jv880.vst3
-           zip -r jv880.component.macOS.zip jv880.component
-           zip -r jv880.app.macOS.zip jv880.app
-           cd -
-      shell: bash
-    - name: Upload Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: jv880-osx
-        path: |
-              ./Builds/MacOSX/build/Release/jv880.vst3.macOS.zip
-              ./Builds/MacOSX/build/Release/jv880.component.macOS.zip
-              ./Builds/MacOSX/build/Release/jv880.app.macOS.zip
-  release:
-    name: "Release"
-    needs: [build-win, build-osx]
-    if: github.ref == 'refs/heads/main'
-    runs-on: "ubuntu-latest"
-    steps:
-      - uses: actions/checkout@v3.3.0
-      - name: Retrieve artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: build
-          pattern: jv880-*
-          merge-multiple: true
-      - run: ls -R build
-      - uses: "marvinpinto/action-automatic-releases@latest"
-        with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          prerelease: true
-          automatic_release_tag: latest
-          title: jv880 Latest
-          files: |
-            build/**/*
+        if-no-files-found: error

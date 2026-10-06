@@ -262,14 +262,11 @@ constexpr inline int32_t sx20(int32_t in)
     return (in << 12) >> 12;
 }
 
-inline uint32_t addclip20(uint32_t add1, uint32_t add2, uint32_t cin)
+// The PCM adder as it was before 7f81e8a ("Fix clipping", May 2025): sign-extended operands added
+// without saturating at 20 bits. This is the build of 6 May 2025, the reference sound for this fork.
+inline int32_t addclip20(int32_t add1, int32_t add2, int32_t cin)
 {
-    uint32_t sum = (add1 + add2 + cin) & 0xfffff;
-    if ((add1 & 0x80000) != 0 && (add2 & 0x80000) != 0 && (sum & 0x80000) == 0)
-        sum = 0x80000;
-    else if ((add1 & 0x80000) == 0 && (add2 & 0x80000) == 0 && (sum & 0x80000) != 0)
-        sum = 0x7ffff;
-    return sum;
+    return sx20(add1) + sx20(add2) + cin;
 }
 
 inline int32_t multi(int32_t val1, int8_t val2)
