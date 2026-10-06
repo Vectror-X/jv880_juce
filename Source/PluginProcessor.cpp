@@ -9,6 +9,56 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+extern bool g_pcmLimitedAdder; // emulator/pcm.cpp
+
+//==============================================================================
+// Settings file: JV880/VirtualJV.settings in the user's application data folder (%APPDATA% on Windows,
+// next to the ROM folder), a JUCE <PROPERTIES> file. It is created with the defaults when missing, missing
+// keys are added and the user's values are never overwritten. It is read when the plugin is created, so an
+// edit takes effect the next time the plugin is loaded.
+//
+// Key names are matched loosely: case, '_', '-' and spaces are ignored, so adderMode, adder_mode,
+// adder-mode, AdderMode and ADDER_MODE all mean the same key.
+//
+//   adderMode   "classic" (default): the PCM chip's adder as in the build of 6 May 2025, without 20-bit
+//               saturation. It is used throughout the chip: voice filters, mixing, reverb, chorus and the
+//               output accumulators.
+//               "limited": the 20-bit saturating adder of the later upstream releases ("Fix clipping").
+namespace {
+juce::String normaliseSettingsKey(const juce::String &s) {
+  return s.removeCharacters("_- ").toLowerCase();
+}
+
+juce::String findSettingsKey(juce::PropertiesFile &settings, const juce::String &camelName) {
+  const auto wanted = normaliseSettingsKey(camelName);
+  const auto keys = settings.getAllProperties().getAllKeys();
+  for (const auto &k : keys)
+    if (normaliseSettingsKey(k) == wanted)
+      return k;
+  return {};
+}
+
+void loadSettings() {
+  juce::PropertiesFile::Options o;
+  o.applicationName = "VirtualJV";
+  o.folderName = "JV880";
+  o.filenameSuffix = ".settings";
+  o.osxLibrarySubFolder = "Application Support";
+  o.storageFormat = juce::PropertiesFile::storeAsXML;
+  o.millisecondsBeforeSaving = -1; // only save when asked
+  juce::PropertiesFile settings(o);
+
+  if (findSettingsKey(settings, "adderMode").isEmpty()) {
+    settings.setValue("adderMode", "classic");
+    settings.saveIfNeeded();
+  }
+
+  const auto key = findSettingsKey(settings, "adderMode");
+  const auto mode = key.isEmpty() ? juce::String("classic") : settings.getValue(key).trim();
+  g_pcmLimitedAdder = mode.equalsIgnoreCase("limited");
+}
+} // namespace
+
 //==============================================================================
 VirtualJVProcessor::VirtualJVProcessor()
     : AudioProcessor(
@@ -17,6 +67,8 @@ VirtualJVProcessor::VirtualJVProcessor()
               .withOutput("Output", juce::AudioChannelSet::stereo(), true)) {
 
   ownedNames.reserve(52);
+
+  loadSettings(); // before the emulator runs, so the adder never changes mid-stream
 
   mcu = new MCU();
 
